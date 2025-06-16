@@ -1,0 +1,1085 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RollCall</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.bootcdn.net/ajax/libs/font-awesome/6.7.2/css/all.css" rel="stylesheet">
+
+    <!-- Tailwind 配置 -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3B82F6',
+                        secondary: '#10B981',
+                        accent: '#F59E0B',
+                        danger: '#EF4444',
+                        dark: '#1E293B',
+                        light: '#F8FAFC'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+
+    <!-- 自定义工具类 -->
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+
+            .card-shadow {
+                box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            }
+
+            .btn-hover {
+                @apply transition-all duration-300 transform hover:scale-105 hover:shadow-lg;
+            }
+
+            .animate-pulse-slow {
+                animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen font-sans">
+
+<header class="bg-primary text-white shadow-md fixed top-0 left-0 right-0 z-50">
+    <div class="container mx-auto px-4 py-3 flex justify-between items-center">
+        <div class="flex items-center space-x-2">
+            <i class="fa fa-graduation-cap text-2xl"></i>
+            <h1 class="text-xl md:text-2xl font-bold">RollCall</h1>
+        </div>
+        <nav>
+            <ul class="flex space-x-4">
+                <li>
+                    <button id="home-btn" class="hover:text-gray-200 transition-colors"><i class="fa fa-home mr-1"></i>首页
+                    </button>
+                </li>
+                <li>
+                    <button id="students-btn" class="hover:text-gray-200 transition-colors"><i
+                            class="fa fa-users mr-1"></i>学生管理
+                    </button>
+                </li>
+                <li>
+                    <button id="statistics-btn" class="hover:text-gray-200 transition-colors"><i
+                            class="fa fa-bar-chart mr-1"></i>统计数据
+                    </button>
+                </li>
+            </ul>
+        </nav>
+    </div>
+</header>
+
+
+<main class="container mx-auto px-4 pt-24 pb-16">
+
+    <section id="home-view" class="space-y-8">
+        <div class="bg-white rounded-xl p-6 card-shadow">
+            <h2 class="text-[clamp(1.5rem,3vw,2.5rem)] font-bold text-dark mb-6 flex items-center">
+                <i class="fa fa-random text-primary mr-3"></i>公平点名
+            </h2>
+
+            <div class="flex flex-col md:flex-row gap-8">
+             
+                <div class="md:w-1/2 flex flex-col items-center justify-center">
+                    <div id="selected-student"
+                         class="w-full h-64 md:h-80 bg-gray-100 rounded-lg flex items-center justify-center mb-6 overflow-hidden relative">
+                        <div id="spinner" class="absolute inset-0 flex items-center justify-center bg-gray-100 z-10">
+                            <div class="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-primary"></div>
+                        </div>
+                        <div id="student-info" class="text-center opacity-0 transition-opacity duration-500">
+                            <div class="w-24 h-24 mx-auto bg-primary/10 rounded-full flex items-center justify-center mb-4">
+                                <i class="fa fa-user text-5xl text-primary"></i>
+                            </div>
+                            <h3 id="student-name" class="text-2xl font-bold text-dark">准备点名</h3>
+                            <p id="student-stats" class="text-gray-500 mt-2">被点名: 0 次 | 回答正确: 0 次</p>
+                        </div>
+                    </div>
+
+                    <div class="flex space-x-4 w-full justify-center">
+                        <button id="roll-btn"
+                                class="bg-primary hover:bg-primary/90 text-white font-bold py-3 px-8 rounded-lg btn-hover flex items-center">
+                            <i class="fa fa-refresh mr-2"></i>开始点名
+                        </button>
+                    </div>
+                </div>
+
+                <div class="md:w-1/2 bg-gray-50 p-6 rounded-lg">
+                    <h3 class="text-xl font-semibold text-dark mb-4">操作选项</h3>
+
+                    <div class="mb-6">
+                        <label class="block text-gray-700 font-medium mb-2">未回答问题阈值</label>
+                        <div class="flex items-center">
+                            <input type="range" id="threshold" min="1" max="10" value="3"
+                                   class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-primary">
+                            <span id="threshold-value" class="ml-2 text-gray-700 font-medium">3</span>
+                        </div>
+                        <p class="text-xs text-gray-500 mt-1">当连续未回答人数达到此值时，将从回答正确率高的学生中选择
+                        </p>
+                    </div>
+
+                    <div id="result-actions" class="space-y-4 hidden">
+                        <button id="correct-btn"
+                                class="w-full bg-secondary hover:bg-secondary/90 text-white font-bold py-3 rounded-lg btn-hover flex items-center justify-center">
+                            <i class="fa fa-check mr-2"></i>回答正确
+                        </button>
+                        <button id="incorrect-btn"
+                                class="w-full bg-danger hover:bg-danger/90 text-white font-bold py-3 rounded-lg btn-hover flex items-center justify-center">
+                            <i class="fa fa-times mr-2"></i>回答错误
+                        </button>
+                        <button id="skip-btn"
+                                class="w-full bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-3 rounded-lg btn-hover flex items-center justify-center">
+                            <i class="fa fa-forward mr-2"></i>跳过
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl p-6 card-shadow">
+            <h2 class="text-xl font-bold text-dark mb-4 flex items-center">
+                <i class="fa fa-history text-primary mr-2"></i>最近点名记录
+            </h2>
+            <div id="recent-rolls" class="overflow-x-auto">
+                <table class="min-w-full">
+                    <thead>
+                    <tr class="bg-gray-100">
+                        <th class="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            时间
+                        </th>
+                        <th class="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            学生
+                        </th>
+                        <th class="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            结果
+                        </th>
+                    </tr>
+                    </thead>
+                    <tbody id="recent-rolls-body">
+
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+
+    <section id="students-view" class="space-y-8 hidden">
+        <div class="bg-white rounded-xl p-6 card-shadow">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
+                <h2 class="text-xl font-bold text-dark mb-4 md:mb-0">学生管理</h2>
+                <div class="flex space-x-3">
+                    <button id="add-student-btn"
+                            class="bg-primary hover:bg-primary/90 text-white font-bold py-2 px-4 rounded-lg btn-hover flex items-center">
+                        <i class="fa fa-plus mr-2"></i>添加学生
+                    </button>
+                    <button id="batch-add-btn"
+                            class="bg-accent hover:bg-accent/90 text-white font-bold py-2 px-4 rounded-lg btn-hover flex items-center">
+                        <i class="fa fa-list mr-2"></i>批量添加
+                    </button>
+                </div>
+            </div>
+
+            <div id="add-student-form" class="mb-6 p-4 bg-gray-50 rounded-lg hidden">
+                <h3 class="text-lg font-semibold mb-4">添加新学生</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label for="student-name-input" class="block text-gray-700 font-medium mb-1">姓名</label>
+                        <input type="text" id="student-name-input"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
+                               placeholder="输入学生姓名">
+                    </div>
+                    <div>
+                        <label for="student-id-input" class="block text-gray-700 font-medium mb-1">学号/ID</label>
+                        <input type="text" id="student-id-input"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
+                               placeholder="输入学号或ID">
+                    </div>
+                </div>
+                <div class="mt-4 flex justify-end space-x-3">
+                    <button id="cancel-add-btn"
+                            class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-medium py-2 px-4 rounded-lg btn-hover">
+                        取消
+                    </button>
+                    <button id="save-student-btn"
+                            class="bg-primary hover:bg-primary/90 text-white font-medium py-2 px-4 rounded-lg btn-hover">
+                        保存
+                    </button>
+                </div>
+            </div>
+
+            <div id="batch-add-form" class="mb-6 p-4 bg-gray-50 rounded-lg hidden">
+                <h3 class="text-lg font-semibold mb-4">批量添加学生</h3>
+                <p class="text-sm text-gray-600 mb-3">请每行输入一个学生信息，格式为：姓名,学号/ID</p>
+                <textarea id="batch-students-input" rows="6"
+                          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
+                          placeholder="示例：
+张三,001
+李四,002
+王五,003"></textarea>
+                <div class="mt-4 flex justify-end space-x-3">
+                    <button id="cancel-batch-btn"
+                            class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-medium py-2 px-4 rounded-lg btn-hover">
+                        取消
+                    </button>
+                    <button id="save-batch-btn"
+                            class="bg-primary hover:bg-primary/90 text-white font-medium py-2 px-4 rounded-lg btn-hover">
+                        导入
+                    </button>
+                </div>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="min-w-full">
+                    <thead>
+                    <tr class="bg-gray-100">
+                        <th class="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            姓名
+                        </th>
+                        <th class="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            学号/ID
+                        </th>
+                        <th class="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            被点名次数
+                        </th>
+                        <th class="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            回答正确次数
+                        </th>
+                        <th class="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            正确率
+                        </th>
+                        <th class="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            操作
+                        </th>
+                    </tr>
+                    </thead>
+                    <tbody id="students-list">
+
+                    <tr>
+                        <td colspan="6" class="py-8 text-center text-gray-500">
+                            <div class="flex flex-col items-center">
+                                <i class="fa fa-users text-4xl text-gray-300 mb-2"></i>
+                                <p>暂无学生信息，请添加学生</p>
+                            </div>
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+
+    <section id="statistics-view" class="space-y-8 hidden">
+        <div class="bg-white rounded-xl p-6 card-shadow">
+            <h2 class="text-xl font-bold text-dark mb-6 flex items-center">
+                <i class="fa fa-bar-chart text-primary mr-2"></i>点名统计数据
+            </h2>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <div class="bg-gray-50 p-4 rounded-lg">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="text-sm text-gray-500">总学生数</p>
+                            <h3 id="total-students" class="text-3xl font-bold text-dark mt-1">0</h3>
+                        </div>
+                        <div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                            <i class="fa fa-users text-primary"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-gray-50 p-4 rounded-lg">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="text-sm text-gray-500">总点名次数</p>
+                            <h3 id="total-rolls" class="text-3xl font-bold text-dark mt-1">0</h3>
+                        </div>
+                        <div class="w-10 h-10 rounded-full bg-accent/10 flex items-center justify-center">
+                            <i class="fa fa-random text-accent"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-gray-50 p-4 rounded-lg">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="text-sm text-gray-500">平均正确率</p>
+                            <h3 id="avg-correct-rate" class="text-3xl font-bold text-dark mt-1">0%</h3>
+                        </div>
+                        <div class="w-10 h-10 rounded-full bg-secondary/10 flex items-center justify-center">
+                            <i class="fa fa-check-circle text-secondary"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="min-w-full">
+                    <thead>
+                    <tr class="bg-gray-100">
+                        <th class="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            姓名
+                        </th>
+                        <th class="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            学号/ID
+                        </th>
+                        <th class="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            被点名次数
+                        </th>
+                        <th class="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            回答正确次数
+                        </th>
+                        <th class="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            正确率
+                        </th>
+                        <th class="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            公平指数
+                        </th>
+                    </tr>
+                    </thead>
+                    <tbody id="statistics-list">
+
+                    <tr>
+                        <td colspan="6" class="py-8 text-center text-gray-500">
+                            <div class="flex flex-col items-center">
+                                <i class="fa fa-bar-chart text-4xl text-gray-300 mb-2"></i>
+                                <p>暂无统计数据，请先添加学生并进行点名</p>
+                            </div>
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+</main>
+
+<div id="delete-modal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 hidden">
+    <div class="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+        <h3 class="text-xl font-bold text-dark mb-4">确认删除</h3>
+        <p class="text-gray-700 mb-6">确定要删除学生 "<span id="delete-student-name" class="font-medium"></span>"
+            吗？此操作不可撤销。
+        </p>
+        <div class="flex justify-end space-x-3">
+            <button id="cancel-delete-btn"
+                    class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-medium py-2 px-4 rounded-lg btn-hover">取消
+            </button>
+            <button id="confirm-delete-btn"
+                    class="bg-danger hover:bg-danger/90 text-white font-medium py-2 px-4 rounded-lg btn-hover">删除
+            </button>
+        </div>
+    </div>
+</div>
+
+<div id="notification"
+     style="z-index: 999999"
+     class="fixed top-4 right-4 bg-white shadow-lg rounded-lg p-4 transform translate-x-full transition-transform duration-300 flex items-center max-w-sm">
+    <div id="notification-icon" class="w-8 h-8 rounded-full flex items-center justify-center mr-3">
+        <i id="notification-icon-i" class="fa fa-info text-primary"></i>
+    </div>
+    <div>
+        <h4 id="notification-title" class="font-medium text-dark">通知标题</h4>
+        <p id="notification-message" class="text-sm text-gray-600">通知内容</p>
+    </div>
+</div>
+
+<script src="static/js/jquery-3.6.0.min.js"></script>
+<script src="static/js/my_aj_req.js"></script>
+
+<script>
+
+    const state = {
+        students: [],
+        recentRolls: [],
+        currentStudent: null,
+        currentRecord: null,
+        consecutiveIncorrect: 0,
+        currentView: 'home-view',
+        threshold: 3
+    };
+
+
+    const elements = {
+        views: {
+            home: document.getElementById('home-view'),
+            students: document.getElementById('students-view'),
+            statistics: document.getElementById('statistics-view')
+        },
+        nav: {
+            home: document.getElementById('home-btn'),
+            students: document.getElementById('students-btn'),
+            statistics: document.getElementById('statistics-btn')
+        },
+        home: {
+            rollBtn: document.getElementById('roll-btn'),
+            correctBtn: document.getElementById('correct-btn'),
+            incorrectBtn: document.getElementById('incorrect-btn'),
+            skipBtn: document.getElementById('skip-btn'),
+            resultActions: document.getElementById('result-actions'),
+            selectedStudent: document.getElementById('selected-student'),
+            studentName: document.getElementById('student-name'),
+            studentStats: document.getElementById('student-stats'),
+            spinner: document.getElementById('spinner'),
+            studentInfo: document.getElementById('student-info'),
+            threshold: document.getElementById('threshold'),
+            thresholdValue: document.getElementById('threshold-value'),
+            recentRollsBody: document.getElementById('recent-rolls-body')
+        },
+        students: {
+            addStudentBtn: document.getElementById('add-student-btn'),
+            batchAddBtn: document.getElementById('batch-add-btn'),
+            addStudentForm: document.getElementById('add-student-form'),
+            batchAddForm: document.getElementById('batch-add-form'),
+            studentNameInput: document.getElementById('student-name-input'),
+            studentIdInput: document.getElementById('student-id-input'),
+            batchStudentsInput: document.getElementById('batch-students-input'),
+            saveStudentBtn: document.getElementById('save-student-btn'),
+            saveBatchBtn: document.getElementById('save-batch-btn'),
+            cancelAddBtn: document.getElementById('cancel-add-btn'),
+            cancelBatchBtn: document.getElementById('cancel-batch-btn'),
+            studentsList: document.getElementById('students-list')
+        },
+        statistics: {
+            totalStudents: document.getElementById('total-students'),
+            totalRolls: document.getElementById('total-rolls'),
+            avgCorrectRate: document.getElementById('avg-correct-rate'),
+            statisticsList: document.getElementById('statistics-list')
+        },
+        modals: {
+            delete: document.getElementById('delete-modal'),
+            deleteStudentName: document.getElementById('delete-student-name'),
+            cancelDeleteBtn: document.getElementById('cancel-delete-btn'),
+            confirmDeleteBtn: document.getElementById('confirm-delete-btn')
+        },
+        notification: {
+            notification: document.getElementById('notification'),
+            notificationIcon: document.getElementById('notification-icon'),
+            notificationIconI: document.getElementById('notification-icon-i'),
+            notificationTitle: document.getElementById('notification-title'),
+            notificationMessage: document.getElementById('notification-message')
+        }
+    };
+
+    // 初始化应用
+    function initApp() {
+        loadData();
+        elements.home.thresholdValue.textContent = state.threshold;
+        bindEventListeners();
+        updateView();
+        showNotification('info', '欢迎使用RollCall', '开始点名前请先添加学生');
+    }
+
+    // 加载数据
+    function loadData() {
+
+        aj_req((data, sig) => {
+            state.students = data
+        }, "aj_sel_student_by_all", "/aj_sel_student_by_all", {}, false)
+
+        aj_req((data, sig) => {
+            state.recentRolls = data
+        }, "aj_sel_record_by_all", "/aj_sel_record_by_all", {}, false)
+
+
+        updateView();
+    }
+
+    // 绑定事件监听器
+    function bindEventListeners() {
+        elements.nav.home.addEventListener('click', () => switchView('home-view'));
+        elements.nav.students.addEventListener('click', () => switchView('students-view'));
+        elements.nav.statistics.addEventListener('click', () => switchView('statistics-view'));
+
+        elements.home.rollBtn.addEventListener('click', rollCall);
+        elements.home.correctBtn.addEventListener('click', () => handleResult(true));
+        elements.home.incorrectBtn.addEventListener('click', () => handleResult(false));
+        elements.home.skipBtn.addEventListener('click', skipStudent);
+        elements.home.threshold.addEventListener('input', () => {
+            state.threshold = parseInt(elements.home.threshold.value);
+            elements.home.thresholdValue.textContent = state.threshold;
+        });
+
+        elements.students.addStudentBtn.addEventListener('click', () => {
+            elements.students.batchAddForm.classList.add('hidden');
+            elements.students.addStudentForm.classList.toggle('hidden');
+        });
+
+        elements.students.batchAddBtn.addEventListener('click', () => {
+            elements.students.addStudentForm.classList.add('hidden');
+            elements.students.batchAddForm.classList.toggle('hidden');
+        });
+
+        elements.students.cancelAddBtn.addEventListener('click', () => {
+            elements.students.addStudentForm.classList.add('hidden');
+            elements.students.studentNameInput.value = '';
+            elements.students.studentIdInput.value = '';
+        });
+
+        elements.students.cancelBatchBtn.addEventListener('click', () => {
+            elements.students.batchAddForm.classList.add('hidden');
+            elements.students.batchStudentsInput.value = '';
+        });
+
+        elements.students.saveStudentBtn.addEventListener('click', addStudent);
+        elements.students.saveBatchBtn.addEventListener('click', batchAddStudents);
+
+        elements.modals.cancelDeleteBtn.addEventListener('click', () => {
+            elements.modals.delete.classList.add('hidden');
+        });
+
+        elements.modals.confirmDeleteBtn.addEventListener('click', deleteStudent);
+
+        elements.students.studentsList.addEventListener('click', (e) => {
+            if (e.target.closest('.delete-student')) {
+                const studentId = e.target.closest('.delete-student').dataset.id;
+                const student = state.students.find(s => s.id === parseInt(studentId));
+
+                if (student) {
+                    elements.modals.deleteStudentName.textContent = student.name;
+                    elements.modals.confirmDeleteBtn.dataset.id = studentId;
+                    elements.modals.delete.classList.remove('hidden');
+                }
+            }
+        });
+    }
+
+    // 切换视图
+    function switchView(view) {
+        state.currentView = view;
+        updateView();
+    }
+
+    // 更新视图
+    function updateView() {
+
+        Object.values(elements.views).forEach(view => {
+            view.classList.add('hidden');
+        });
+
+
+        elements.views[state.currentView.split('-')[0]].classList.remove('hidden');
+
+        Object.entries(elements.nav).forEach(([key, btn]) => {
+            if (key === state.currentView.split('-')[0]) {
+                btn.classList.add('font-bold');
+            } else {
+                btn.classList.remove('font-bold');
+            }
+        });
+
+
+        updateHomeView();
+        updateStudentsView();
+        updateStatisticsView();
+    }
+
+    // 更新首页视图
+    function updateHomeView() {
+ 
+        elements.home.recentRollsBody.innerHTML = '';
+
+        if (state.recentRolls.length === 0) {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                    <td colspan="3" class="py-4 text-center text-gray-500">暂无点名记录</td>
+                `;
+            elements.home.recentRollsBody.appendChild(row);
+        } else {
+            let count = 0;
+            state.recentRolls.forEach(roll => {
+                if (count >= 5) {
+                    return;
+                }
+                const row = document.createElement('tr');
+                row.className = 'border-b';
+
+                let resultClass = '';
+                let resultIcon = '';
+
+                if (roll.result === 'correct') {
+                    resultClass = 'text-secondary';
+                    resultIcon = '<i class="fa fa-check"></i>';
+                } else if (roll.result === 'incorrect') {
+                    resultClass = 'text-danger';
+                    resultIcon = '<i class="fa fa-times"></i>';
+                } else {
+                    resultClass = 'text-gray-500';
+                    resultIcon = '<i class="fa fa-forward"></i>';
+                }
+
+                row.innerHTML = `
+                        <td class="py-3 px-4">${formatDateTime(roll.time)}</td>
+                        <td class="py-3 px-4">${roll.studentName}</td>
+                        <td class="py-3 px-4 ${resultClass}">${resultIcon} ${getResultText(roll.result)}</td>
+                    `;
+
+                elements.home.recentRollsBody.appendChild(row);
+                count += 1;
+            });
+        }
+
+        if (state.students.length === 0) {
+            elements.home.rollBtn.disabled = true;
+            elements.home.rollBtn.classList.add('opacity-50', 'cursor-not-allowed');
+            elements.home.rollBtn.innerHTML = '<i class="fa fa-refresh mr-2"></i>请先添加学生';
+        } else {
+            elements.home.rollBtn.disabled = false;
+            elements.home.rollBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            elements.home.rollBtn.innerHTML = '<i class="fa fa-refresh mr-2"></i>开始点名';
+        }
+    }
+
+    // 更新学生管理视图
+    function updateStudentsView() {
+
+        elements.students.studentsList.innerHTML = '';
+
+        if (state.students.length === 0) {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                    <td colspan="6" class="py-8 text-center text-gray-500">
+                        <div class="flex flex-col items-center">
+                            <i class="fa fa-users text-4xl text-gray-300 mb-2"></i>
+                            <p>暂无学生信息，请添加学生</p>
+                        </div>
+                    </td>
+                `;
+            elements.students.studentsList.appendChild(row);
+        } else {
+            state.students.forEach(student => {
+                const row = document.createElement('tr');
+                row.className = 'border-b hover:bg-gray-50 transition-colors';
+
+                const correctRate = student.called === 0 ? 0 : (student.correct / student.called) * 100;
+
+                row.innerHTML = `
+                        <td class="py-3 px-4">${student.name}</td>
+                        <td class="py-3 px-4">${student.studentId || '无'}</td>
+                        <td class="py-3 px-4">${student.called}</td>
+                        <td class="py-3 px-4">${student.correct}</td>
+                        <td class="py-3 px-4">
+                            <div class="flex items-center">
+                                <div class="w-16 h-2 bg-gray-200 rounded-full mr-2 overflow-hidden">
+                                    <div class="h-full bg-secondary rounded-full" style="width: ${correctRate}%"></div>
+                                </div>
+                                ${correctRate.toFixed(1)}%
+                            </div>
+                        </td>
+                        <td class="py-3 px-4">
+                            <button class="delete-student text-danger hover:text-danger/80 transition-colors" data-id="${student.id}">
+                                <i class="fa fa-trash"></i> 删除
+                            </button>
+                        </td>
+                    `;
+
+                elements.students.studentsList.appendChild(row);
+            });
+        }
+    }
+
+    // 更新统计数据视图
+    function updateStatisticsView() {
+        elements.statistics.totalStudents.textContent = state.students.length;
+
+        const totalCalls = state.students.reduce((sum, student) => sum + student.called, 0);
+        elements.statistics.totalRolls.textContent = totalCalls;
+
+        const totalCorrect = state.students.reduce((sum, student) => sum + student.correct, 0);
+        const avgCorrectRate = totalCalls === 0 ? 0 : (totalCorrect / totalCalls) * 100;
+        elements.statistics.avgCorrectRate.textContent = `${avgCorrectRate.toFixed(1)}%`;
+
+        elements.statistics.statisticsList.innerHTML = '';
+
+        if (state.students.length === 0) {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                    <td colspan="6" class="py-8 text-center text-gray-500">
+                        <div class="flex flex-col items-center">
+                            <i class="fa fa-bar-chart text-4xl text-gray-300 mb-2"></i>
+                            <p>暂无统计数据，请先添加学生并进行点名</p>
+                        </div>
+                    </td>
+                `;
+            elements.statistics.statisticsList.appendChild(row);
+        } else {
+            const avgCalls = totalCalls / state.students.length;
+
+            const sortedStudents = [...state.students].sort((a, b) => {
+                const aFairness = Math.abs(a.called - avgCalls);
+                const bFairness = Math.abs(b.called - avgCalls);
+                return aFairness - bFairness;
+            });
+
+            sortedStudents.forEach(student => {
+                const row = document.createElement('tr');
+                row.className = 'border-b hover:bg-gray-50 transition-colors';
+
+                const correctRate = student.called === 0 ? 0 : (student.correct / student.called) * 100;
+
+                const fairnessIndex = avgCalls === 0 ? 100 : (1 - Math.abs(student.called - avgCalls) / avgCalls) * 100;
+                const fairnessColor = fairnessIndex >= 90 ? 'bg-secondary' : fairnessIndex >= 70 ? 'bg-accent' : 'bg-danger';
+
+                row.innerHTML = `
+                        <td class="py-3 px-4">${student.name}</td>
+                        <td class="py-3 px-4">${student.studentId || '无'}</td>
+                        <td class="py-3 px-4">${student.called}</td>
+                        <td class="py-3 px-4">${student.correct}</td>
+                        <td class="py-3 px-4">
+                            <div class="flex items-center">
+                                <div class="w-16 h-2 bg-gray-200 rounded-full mr-2 overflow-hidden">
+                                    <div class="h-full bg-secondary rounded-full" style="width: ${correctRate}%"></div>
+                                </div>
+                                ${correctRate.toFixed(1)}%
+                            </div>
+                        </td>
+                        <td class="py-3 px-4">
+                            <div class="flex items-center">
+                                <div class="w-16 h-2 bg-gray-200 rounded-full mr-2 overflow-hidden">
+                                    <div class="h-full ${fairnessColor} rounded-full" style="width: ${fairnessIndex}%"></div>
+                                </div>
+                                ${fairnessIndex.toFixed(1)}%
+                            </div>
+                        </td>
+                    `;
+
+                elements.statistics.statisticsList.appendChild(row);
+            });
+        }
+    }
+
+    // 点名逻辑
+    function rollCall() {
+        elements.home.resultActions.classList.add('hidden');
+
+        elements.home.spinner.classList.remove('hidden');
+        elements.home.studentInfo.classList.add('opacity-0');
+
+        elements.home.rollBtn.disabled = true;
+        elements.home.rollBtn.classList.add('opacity-50', 'cursor-not-allowed');
+        elements.home.rollBtn.innerHTML = '<i class="fa fa-spinner fa-spin mr-2"></i>点名中...';
+
+        setTimeout(() => {
+            let selectedStudent;
+
+            if (state.consecutiveIncorrect >= state.threshold) {
+                const highCorrectRateStudents = state.students
+                    .filter(s => s.called > 0)
+                    .sort((a, b) => (b.correct / b.called) - (a.correct / a.called))
+                    .slice(0, Math.max(3, Math.ceil(state.students.length / 3)));
+
+                if (highCorrectRateStudents.length > 0) {
+                    selectedStudent = highCorrectRateStudents[Math.floor(Math.random() * highCorrectRateStudents.length)];
+                }
+            }
+
+            if (!selectedStudent) {
+
+                const minCalled = Math.min(...state.students.map(s => s.called));
+                const eligibleStudents = state.students.filter(s => s.called === minCalled);
+
+                if (eligibleStudents.length > 0) {
+                    selectedStudent = eligibleStudents[Math.floor(Math.random() * eligibleStudents.length)];
+                }
+            }
+
+            if (selectedStudent) {
+                state.currentStudent = selectedStudent;
+
+                elements.home.studentName.textContent = selectedStudent.name;
+                elements.home.studentStats.textContent = `被点名: ${selectedStudent.called} 次 | 回答正确: ${selectedStudent.correct} 次`;
+
+                elements.home.spinner.classList.add('hidden');
+                elements.home.studentInfo.classList.remove('opacity-0');
+
+                elements.home.resultActions.classList.remove('hidden');
+
+                addRollRecord(selectedStudent.name, 'pending');
+
+                showNotification('success', '点名成功', `已选择 ${selectedStudent.name}`);
+            } else {
+                showNotification('error', '点名错误', '没有找到合适的学生');
+            }
+
+            elements.home.rollBtn.disabled = false;
+            elements.home.rollBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            elements.home.rollBtn.innerHTML = '<i class="fa fa-refresh mr-2"></i>重新点名';
+        }, 1500);
+    }
+
+    // 处理点名结果
+    function handleResult(isCorrect) {
+        if (!state.currentStudent) return;
+
+        state.currentStudent.called++;
+
+        if (isCorrect) {
+            state.currentStudent.correct++;
+            state.consecutiveIncorrect = 0;
+        } else {
+            state.consecutiveIncorrect++;
+        }
+
+        aj_req((data, sig) => {
+            data = parseInt(data)
+            if (data === -1) {
+                showNotification('error', '更新学生信息错误', '更新学生信息错误！');
+                return
+            }
+            showNotification('success', '更新学生信息成功', '更新学生信息成功！')
+            loadData()
+        }, "", "/aj_upd_student_by_id", state.currentStudent, false)
+
+        updateRollRecord(state.currentStudent.name, isCorrect ? 'correct' : 'incorrect');
+
+        updateView();
+
+        elements.home.resultActions.classList.add('hidden');
+
+        showNotification(
+            isCorrect ? 'success' : 'warning',
+            isCorrect ? '回答正确' : '回答错误',
+            isCorrect
+                ? `${state.currentStudent?.name} 回答正确！`
+                : `${state.currentStudent?.name} 回答错误。已计入未回答次数。`
+        );
+        state.currentStudent = null;
+    }
+
+    // 跳过学生
+    function skipStudent() {
+        if (!state.currentStudent) return;
+
+        updateRollRecord(state.currentStudent.name, 'skipped');
+        state.currentStudent = null;
+        elements.home.resultActions.classList.add('hidden');
+        showNotification('info', '已跳过', '该学生已被跳过');
+    }
+
+    // 添加学生
+    function addStudent() {
+        const name = elements.students.studentNameInput.value.trim();
+        const studentId = elements.students.studentIdInput.value.trim();
+
+        if (!name) {
+            showNotification('error', '添加错误', '学生姓名不能为空');
+            return;
+        }
+
+        if (!studentId) {
+            showNotification('error', '添加错误', '学生学号不能为空');
+            return;
+        }
+
+        if (state.students.some(s => s.name === name)) {
+            showNotification('error', '添加错误', `已存在名为 ${name} 的学生`);
+            return;
+        }
+
+        const newStudent = {
+            name: name,
+            studentId: studentId,
+            called: 0,
+            correct: 0
+        };
+
+        aj_req((data, sig) => {
+
+            data = parseInt(data)
+            if (data === -1) {
+                showNotification('error', '添加错误', `添加错误`)
+                return
+            }
+
+            elements.students.studentNameInput.value = '';
+            elements.students.studentIdInput.value = '';
+            elements.students.addStudentForm.classList.add('hidden');
+            showNotification('success', '添加成功', `已添加学生 ${name}`);
+            loadData()
+        }, "aj_ins_student", "/aj_ins_student", newStudent)
+
+
+    }
+
+    // 批量添加学生
+    function batchAddStudents() {
+        const input = elements.students.batchStudentsInput.value.trim();
+
+        if (!input) {
+            showNotification('error', '批量添加错误', '输入不能为空');
+            return;
+        }
+
+        const lines = input.split('\n');
+        let addedCount = 0;
+        let errors = [];
+
+        lines.forEach(line => {
+            const trimmedLine = line.trim();
+            if (!trimmedLine) return;
+
+            const parts = trimmedLine.split(',');
+            const name = parts[0].trim();
+            const studentId = parts.length > 1 ? parts[1].trim() : null;
+
+            if (!name) {
+                errors.push(`无效的学生信息: ${line}`);
+                return;
+            }
+
+            if (!studentId) {
+                errors.push(`无效的学生信息: ${line}`);
+                return;
+            }
+
+            if (state.students.some(s => s.name === name)) {
+                errors.push(`已存在名为 ${name} 的学生`);
+                return;
+            }
+
+            const newStudent = {
+                name: name,
+                studentId: studentId,
+                called: 0,
+                correct: 0
+            };
+
+            aj_req((data, sig) => {
+                data = parseInt(data)
+                if (data === -1) {
+                    errors.push(`添加错误`)
+                    return
+                }
+                addedCount++;
+            }, "aj_ins_student", "/aj_ins_student", newStudent, false)
+
+        });
+
+        elements.students.batchStudentsInput.value = '';
+
+        elements.students.batchAddForm.classList.add('hidden');
+
+        loadData()
+
+        if (addedCount > 0) {
+            showNotification('success', '批量添加成功', `已添加 ${addedCount} 名学生`);
+        }
+
+        if (errors.length > 0) {
+            showNotification('warning', '部分添加错误', errors.join('\n'));
+        }
+    }
+
+    // 删除学生
+    function deleteStudent() {
+        const studentId = elements.modals.confirmDeleteBtn.dataset.id;
+
+        aj_req((data, sig) => {
+            data = parseInt(data)
+            if (data === -1) {
+                showNotification('error', '删除错误', `删除错误`)
+                return
+            }
+            elements.modals.delete.classList.add('hidden');
+            showNotification('info', '删除成功', `已删除学生`);
+            loadData()
+        }, "aj_del_student_by_studentId", "/aj_del_student_by_studentId", {"id": studentId})
+    }
+
+    // 添加点名记录
+    function addRollRecord(studentName, result) {
+        aj_req((data, sig) => {
+            data = parseInt(data)
+            if (data === -1) {
+                showNotification('error', '添加错误', `添加错误`)
+                return
+            }
+            showNotification('success', '添加成功', `已添加点名记录`)
+            loadData()
+        }, "aj_ins_record", "/aj_ins_record", {"studentName": studentName, "result": result})
+    }
+
+    // 更新点名记录
+    function updateRollRecord(studentName, result) {
+        const record = state.recentRolls.find(r => r.studentName === studentName && r.result === 'pending');
+        if (!record) {
+            return
+        }
+        record.result = result;
+        aj_req((data, sig) => {
+                data = parseInt(data)
+                if (data === -1) {
+                    showNotification('error', '更新错误', `更新错误`)
+                    return
+                }
+                showNotification('success', '更新成功', `已更新点名记录`)
+                loadData()
+            }, "aj_upd_record_by_id", "/aj_upd_record_by_id",
+            {
+                "id": record.id,
+                "studentName": studentName,
+                "result": result
+            })
+    }
+
+    // 格式化日期时间
+    function formatDateTime(dateTimeString) {
+        const date = new Date(dateTimeString);
+        return date.toLocaleString();
+    }
+
+    // 获取结果文本
+    function getResultText(result) {
+        switch (result) {
+            case 'correct':
+                return '回答正确';
+            case 'incorrect':
+                return '回答错误';
+            case 'skipped':
+                return '已跳过';
+            default:
+                return '等待结果';
+        }
+    }
+
+    // 显示通知
+    function showNotification(type, title, message) {
+        elements.notification.notification.style.display = '';
+        switch (type) {
+            case 'success':
+                elements.notification.notificationIcon.className = 'w-8 h-8 rounded-full bg-secondary/20 flex items-center justify-center mr-3';
+                elements.notification.notificationIconI.className = 'fa fa-check text-secondary';
+                break;
+            case 'error':
+                elements.notification.notificationIcon.className = 'w-8 h-8 rounded-full bg-danger/20 flex items-center justify-center mr-3';
+                elements.notification.notificationIconI.className = 'fa fa-exclamation-circle text-danger';
+                break;
+            case 'warning':
+                elements.notification.notificationIcon.className = 'w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center mr-3';
+                elements.notification.notificationIconI.className = 'fa fa-exclamation-triangle text-accent';
+                break;
+            default:
+                elements.notification.notificationIcon.className = 'w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center mr-3';
+                elements.notification.notificationIconI.className = 'fa fa-info text-primary';
+        }
+
+        elements.notification.notificationTitle.textContent = title;
+        elements.notification.notificationMessage.textContent = message;
+
+        elements.notification.notification.classList.remove('translate-x-full');
+
+        setTimeout(() => {
+            elements.notification.notification.style.display = 'none';
+        }, 3000);
+    }
+
+    document.addEventListener('DOMContentLoaded', initApp);
+</script>
+</body>
+</html>
